@@ -8,32 +8,32 @@ Ce projet a pour objectif de concevoir une chaîne complète de traitement de do
 ## 1. Architecture du projet
 Le projet respecte une séparation stricte des responsabilités à travers un pipeline linéaire:
 
-* 
+
 **Collecte** : Récupération de données réelles depuis l'API OpenFoodFacts.
-* 
+
 **Stockage RAW (MongoDB)** : Conservation de la donnée brute non modifiée pour garantir la traçabilité.
-* 
+
 **Enrichissement (MongoDB)** : Transformation de la donnée brute en donnée enrichie (calcul de scores, normalisation).
-* 
+
 **ETL (Extraction, Transformation, Load)** : Passage des données de MongoDB vers une base SQL exploitable.
-* 
+
 **Base SQL (SQLite)** : Stockage relationnel optimisé pour les performances du dashboard.
-* 
+
 **API Backend (Next.js)** : Exposition des données SQL via des endpoints sécurisés.
-* 
+
 **Dashboard (React/Tailwind)** : Interface utilisateur pour la consultation et l'analyse.
 
 
 ## 2. Choix techniques
-* 
+
 **Framework** : Next.js (App Router) pour l'unification du frontend et de l'API.
-* 
+
 **Bases de données NoSQL** : MongoDB pour la flexibilité du stockage des données brutes (JSON natif).
-* 
+
 **Base de données SQL** : SQLite avec l'ORM Drizzle pour la simplicité de déploiement et la rigueur du schéma relationnel.
-* 
+
 **Styles** : Tailwind CSS pour une interface fluide et moderne.
-* 
+
 **Tests** : Vitest pour la validation de la logique métier et des intégrations API/SQL.
 
 
@@ -111,7 +111,6 @@ Validations de la logique isolée sans dépendances externes:
 Validations des interactions entre composants:
 * **Requêtes SQL** : Vérification de la persistance et de la récupération des données.
 * **Endpoints API** : Validation des réponses JSON pour `/api/products` et `/api/stats`.
-* 
 **Pipeline complet** : Test de bout en bout sur un échantillon réduit (2 produits) pour confirmer l'intégrité du flux.
 
 **Lancer les tests** :
@@ -120,11 +119,11 @@ npm test
 ```
 
 ## 6. Limites du projet
-* 
+
 **Volume de données** : Le pipeline est configuré pour une collecte initiale de 300 entrées conformément aux consignes du TP.
 
-* 
+
 **Gestion des erreurs** : Le script de collecte gère les timeouts basiques mais ne dispose pas d'un système de reprise après erreur complexe (retries exponentiels).
 
-* 
+
 **Sources** : Dépendance directe à la disponibilité de l'API OpenFoodFacts pour la phase de collecte.
