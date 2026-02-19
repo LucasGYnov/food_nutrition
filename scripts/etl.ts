@@ -7,8 +7,6 @@ dotenv.config({ path: '.env.local' });
 async function runETL() {
   const mongoClient = new MongoClient(process.env.MONGODB_URI!);
   const sqlite = new Database('sqlite.db');
-  
-  // Activer les clés étrangères
   sqlite.pragma('foreign_keys = ON');
 
   try {
@@ -19,9 +17,9 @@ async function runETL() {
       .find()
       .toArray();
 
-    console.log(`Extraction de ${enrichedDocs.length} produits de MongoDB...`);
+    console.log(`Extraction de ${enrichedDocs.length} produits...`);
 
-    // 1. Création des tables relationnelles
+    // 1. Schéma corrigé (barcode_id n'est plus UNIQUE dans products)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS brands (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,10 +31,14 @@ async function runETL() {
         name TEXT UNIQUE NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS barcodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         raw_id TEXT UNIQUE,
-        code TEXT,
         name TEXT,
         nutriscore TEXT,
         health_score REAL,
@@ -44,38 +46,32 @@ async function runETL() {
         image_url TEXT,
         brand_id INTEGER,
         category_id INTEGER,
+        barcode_id INTEGER, -- Contrainte UNIQUE supprimée ici
         FOREIGN KEY (brand_id) REFERENCES brands(id),
-        FOREIGN KEY (category_id) REFERENCES categories(id)
+        FOREIGN KEY (category_id) REFERENCES categories(id),
+        FOREIGN KEY (barcode_id) REFERENCES barcodes(id)
       );
 
       CREATE TABLE IF NOT EXISTS nutriments (
         product_id INTEGER PRIMARY KEY,
-        calories REAL,
-        fat REAL,
-        sugars REAL,
-        proteins REAL,
-        salt REAL,
+        calories REAL, fat REAL, sugars REAL, proteins REAL, salt REAL,
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
       );
     `);
 
-    // Optionnel : Vidage propre pour relancer le script à zéro
-    sqlite.exec(`
-      DELETE FROM nutriments;
-      DELETE FROM products;
-      DELETE FROM brands;
-      DELETE FROM categories;
-    `);
+    // Vidage pour repartir propre
+    sqlite.exec(`DELETE FROM nutriments; DELETE FROM products; DELETE FROM brands; DELETE FROM categories; DELETE FROM barcodes;`);
 
-    // 2. Préparation des requêtes
+    // 2. Requêtes préparées
     const insertBrand = sqlite.prepare('INSERT OR IGNORE INTO brands (name) VALUES (?)');
     const getBrand = sqlite.prepare('SELECT id FROM brands WHERE name = ?');
-    
     const insertCategory = sqlite.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
     const getCategory = sqlite.prepare('SELECT id FROM categories WHERE name = ?');
+    const insertBarcode = sqlite.prepare('INSERT OR IGNORE INTO barcodes (code) VALUES (?)');
+    const getBarcode = sqlite.prepare('SELECT id FROM barcodes WHERE code = ?');
 
     const insertProduct = sqlite.prepare(`
-      INSERT INTO products (raw_id, code, name, nutriscore, health_score, is_ultra_processed, image_url, brand_id, category_id)
+      INSERT INTO products (raw_id, name, nutriscore, health_score, is_ultra_processed, image_url, brand_id, category_id, barcode_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
@@ -84,53 +80,59 @@ async function runETL() {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    // 3. Transaction : Exécution rapide et sécurisée
+    // 3. Transaction
     const runTransfer = sqlite.transaction((docs) => {
       for (const p of docs) {
-        // 1. Marque
-        insertBrand.run(p.brand);
-        const brandRow = getBrand.get(p.brand) as { id: number }; // Assertion
-        const brandId = brandRow.id;
+        // Marque
+        const brandName = p.brand || "Marque inconnue";
+        insertBrand.run(brandName);
+        const brandId = (getBrand.get(brandName) as any).id;
 
-        // 2. Catégorie
-        insertCategory.run(p.category_label);
-        const categoryRow = getCategory.get(p.category_label) as { id: number };
-        const categoryId = categoryRow.id;
+        // Catégorie
+        const catName = p.category_label || "Autre";
+        insertCategory.run(catName);
+        const categoryId = (getCategory.get(catName) as any).id;
 
-        // 3. Produit
+        // Barcode (Gestion du null et de l'existant)
+        let barcodeId = null;
+        if (p.code && p.code.trim() !== "") {
+          insertBarcode.run(p.code);
+          const res = getBarcode.get(p.code) as any;
+          if (res) barcodeId = res.id;
+        }
+
+        // Produit
         const productResult = insertProduct.run(
           p.raw_id,
-          p.code,
-          p.product_name,
+          p.product_name || "Inconnu",
           p.nutriscore,
           p.internal_health_score,
           p.is_ultra_processed ? 1 : 0,
           p.image_url,
           brandId,
-          categoryId
+          categoryId,
+          barcodeId
         );
 
-        const newProductId = productResult.lastInsertRowid;
-
-        // 4. Nutriments
+        // Nutriments
         if (p.nutriments) {
           insertNutriments.run(
-            newProductId,
-            p.nutriments.energy_kcal,
-            p.nutriments.fat,
-            p.nutriments.sugars,
-            p.nutriments.proteins,
-            p.nutriments.salt
+            productResult.lastInsertRowid,
+            p.nutriments.energy_kcal || 0,
+            p.nutriments.fat || 0,
+            p.nutriments.sugars || 0,
+            p.nutriments.proteins || 0,
+            p.nutriments.salt || 0
           );
         }
       }
     });
 
     runTransfer(enrichedDocs);
-    console.log("✅ Chargement relationnel dans SQLite terminé avec succès !");
+    console.log("✅ ETL réussi : Fragmentation barcodes effectuée.");
 
   } catch (error) {
-    console.error("❌ Erreur ETL SQLite :", error);
+    console.error("❌ Erreur :", error);
   } finally {
     await mongoClient.close();
     sqlite.close();

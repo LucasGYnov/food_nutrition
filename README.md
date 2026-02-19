@@ -21,20 +21,40 @@ Le projet respecte une séparation stricte des responsabilités à travers un pi
 * **Styles** : Tailwind CSS pour une interface fluide et moderne.
 * **Tests** : Vitest pour la validation de la logique métier et des intégrations API/SQL.
 
-## 3. Schéma SQL
-La base de données SQL est structurée autour d'une table principale `products` optimisée pour les filtres et les agrégations :
 
+## 3. Schéma SQL (Normalisé & Fragmenté)
+La base de données SQLite est structurée selon un **schéma en flocon** pour optimiser l'intégrité des données et permettre une gestion fine des codes-barres, marques et catégories.
+
+### Table Principale : `products`
 | Colonne | Type | Contrainte | Description |
 | --- | --- | --- | --- |
-| id | INTEGER | PRIMARY KEY | Identifiant unique SQL |
-| raw_id | TEXT | UNIQUE | Référence vers l'ID MongoDB d'origine |
-| name | TEXT | NOT NULL | Nom du produit |
-| brand | TEXT | - | Marque principale |
-| nutriscore | TEXT | - | Grade Nutri-Score (A-E) |
-| category | TEXT | - | Catégorie normalisée |
-| health_score | INTEGER | - | Score interne calculé (0-100) |
-| is_ultra_processed | BOOLEAN | - | Indicateur NOVA 4 |
-| image_url | TEXT | - | Lien vers l'image du produit |
+| **id** | INTEGER | PRIMARY KEY | Identifiant unique auto-incrémenté. |
+| **raw_id** | TEXT | UNIQUE | Référence vers l'ID `_id` de MongoDB. |
+| **name** | TEXT | - | Nom du produit (ex: "Sidi Ali"). |
+| **nutriscore** | TEXT | - | Grade Nutri-Score (A à E). |
+| **health_score** | REAL | - | Score de santé interne (0-100). |
+| **is_ultra_processed** | INTEGER | - | Indicateur NOVA 4 (0 ou 1). |
+| **image_url** | TEXT | - | URL de l'image du produit. |
+| **brand_id** | INTEGER | FK | Clé étrangère vers `brands.id`. |
+| **category_id** | INTEGER | FK | Clé étrangère vers `categories.id`. |
+| **barcode_id** | INTEGER | FK | Clé étrangère vers `barcodes.id`. |
+
+### Tables de Fragmentation (Dictionnaires)
+* **`barcodes`** : Stocke les codes QR/EAN-13 uniques (`id`, `code`).
+* **`brands`** : Liste unique des marques (`id`, `name`).
+* **`categories`** : Liste unique des catégories normalisées (`id`, `name`).
+
+### Table de Détail : `nutriments`
+| Colonne | Type | Contrainte | Description |
+| --- | --- | --- | --- |
+| **product_id** | INTEGER | PK, FK | Liaison 1:1 avec `products.id` (ON DELETE CASCADE). |
+| **calories** | REAL | - | Énergie en kcal pour 100g. |
+| **fat** | REAL | - | Lipides pour 100g. |
+| **sugars** | REAL | - | Sucres pour 100g. |
+| **proteins** | REAL | - | Protéines pour 100g. |
+| **salt** | REAL | - | Sel pour 100g. |
+
+---
 
 ## 4. Instructions d'installation
 ### Prérequis
