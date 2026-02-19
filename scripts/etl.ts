@@ -7,6 +7,8 @@ dotenv.config({ path: '.env.local' });
 async function runETL() {
   const mongoClient = new MongoClient(process.env.MONGODB_URI!);
   const sqlite = new Database('sqlite.db');
+  
+  // Activation des contraintes d'intégrité référentielle
   sqlite.pragma('foreign_keys = ON');
 
   try {
@@ -17,9 +19,9 @@ async function runETL() {
       .find()
       .toArray();
 
-    console.log(`Extraction de ${enrichedDocs.length} produits...`);
+    console.log(`Extraction de ${enrichedDocs.length} produits de MongoDB...`);
 
-    // 1. Schéma corrigé (barcode_id n'est plus UNIQUE dans products)
+    // 1. Création du schéma (Code réintégré dans products)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS brands (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,14 +33,10 @@ async function runETL() {
         name TEXT UNIQUE NOT NULL
       );
 
-      CREATE TABLE IF NOT EXISTS barcodes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code TEXT UNIQUE NOT NULL
-      );
-
       CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         raw_id TEXT UNIQUE,
+        code TEXT, -- QR Code / Code-barres réintégré ici
         name TEXT,
         nutriscore TEXT,
         health_score REAL,
@@ -46,32 +44,38 @@ async function runETL() {
         image_url TEXT,
         brand_id INTEGER,
         category_id INTEGER,
-        barcode_id INTEGER, -- Contrainte UNIQUE supprimée ici
         FOREIGN KEY (brand_id) REFERENCES brands(id),
-        FOREIGN KEY (category_id) REFERENCES categories(id),
-        FOREIGN KEY (barcode_id) REFERENCES barcodes(id)
+        FOREIGN KEY (category_id) REFERENCES categories(id)
       );
 
       CREATE TABLE IF NOT EXISTS nutriments (
         product_id INTEGER PRIMARY KEY,
-        calories REAL, fat REAL, sugars REAL, proteins REAL, salt REAL,
+        calories REAL,
+        fat REAL,
+        sugars REAL,
+        proteins REAL,
+        salt REAL,
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
       );
     `);
 
-    // Vidage pour repartir propre
-    sqlite.exec(`DELETE FROM nutriments; DELETE FROM products; DELETE FROM brands; DELETE FROM categories; DELETE FROM barcodes;`);
+    // Nettoyage pour repartir sur une base propre
+    sqlite.exec(`
+      DELETE FROM nutriments;
+      DELETE FROM products;
+      DELETE FROM brands;
+      DELETE FROM categories;
+    `);
 
-    // 2. Requêtes préparées
+    // 2. Préparation des requêtes SQL
     const insertBrand = sqlite.prepare('INSERT OR IGNORE INTO brands (name) VALUES (?)');
     const getBrand = sqlite.prepare('SELECT id FROM brands WHERE name = ?');
+    
     const insertCategory = sqlite.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
     const getCategory = sqlite.prepare('SELECT id FROM categories WHERE name = ?');
-    const insertBarcode = sqlite.prepare('INSERT OR IGNORE INTO barcodes (code) VALUES (?)');
-    const getBarcode = sqlite.prepare('SELECT id FROM barcodes WHERE code = ?');
 
     const insertProduct = sqlite.prepare(`
-      INSERT INTO products (raw_id, name, nutriscore, health_score, is_ultra_processed, image_url, brand_id, category_id, barcode_id)
+      INSERT INTO products (raw_id, code, name, nutriscore, health_score, is_ultra_processed, image_url, brand_id, category_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
@@ -80,44 +84,38 @@ async function runETL() {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    // 3. Transaction
+    // 3. Exécution de la transaction
     const runTransfer = sqlite.transaction((docs) => {
       for (const p of docs) {
-        // Marque
+        // Gestion de la Marque
         const brandName = p.brand || "Marque inconnue";
         insertBrand.run(brandName);
         const brandId = (getBrand.get(brandName) as any).id;
 
-        // Catégorie
-        const catName = p.category_label || "Autre";
-        insertCategory.run(catName);
-        const categoryId = (getCategory.get(catName) as any).id;
+        // Gestion de la Catégorie
+        const categoryName = p.category_label || "Non classé";
+        insertCategory.run(categoryName);
+        const categoryId = (getCategory.get(categoryName) as any).id;
 
-        // Barcode (Gestion du null et de l'existant)
-        let barcodeId = null;
-        if (p.code && p.code.trim() !== "") {
-          insertBarcode.run(p.code);
-          const res = getBarcode.get(p.code) as any;
-          if (res) barcodeId = res.id;
-        }
-
-        // Produit
+        // Insertion du Produit (avec le champ code)
         const productResult = insertProduct.run(
           p.raw_id,
-          p.product_name || "Inconnu",
-          p.nutriscore,
-          p.internal_health_score,
+          p.code || null,
+          p.product_name || "Nom inconnu",
+          p.nutriscore || "UNKNOWN",
+          p.internal_health_score || 0,
           p.is_ultra_processed ? 1 : 0,
-          p.image_url,
+          p.image_url || null,
           brandId,
-          categoryId,
-          barcodeId
+          categoryId
         );
 
-        // Nutriments
+        const newProductId = productResult.lastInsertRowid;
+
+        // Insertion des Nutriments
         if (p.nutriments) {
           insertNutriments.run(
-            productResult.lastInsertRowid,
+            newProductId,
             p.nutriments.energy_kcal || 0,
             p.nutriments.fat || 0,
             p.nutriments.sugars || 0,
@@ -129,10 +127,10 @@ async function runETL() {
     });
 
     runTransfer(enrichedDocs);
-    console.log("✅ ETL réussi : Fragmentation barcodes effectuée.");
+    console.log("ETL réussi : Données chargées avec succès (Code inclus dans Products).");
 
   } catch (error) {
-    console.error("❌ Erreur :", error);
+    console.error("Erreur lors de l'ETL :", error);
   } finally {
     await mongoClient.close();
     sqlite.close();

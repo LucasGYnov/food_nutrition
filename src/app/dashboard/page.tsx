@@ -92,7 +92,7 @@ export default function DashboardPage() {
               <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg">
                 <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`} />
                 <span className="text-sm text-white/90">
-                  {isRefreshing ? 'Mise à jour...' : `Mis à jour ${lastUpdate.toLocaleTimeString()}`}
+                  {/* {isRefreshing ? 'Mise à jour...' : `Mis à jour ${lastUpdate.toLocaleTimeString()}`} */}
                 </span>
               </div>
 

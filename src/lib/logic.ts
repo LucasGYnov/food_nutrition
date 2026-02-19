@@ -16,6 +16,7 @@ export function calculateInternalScore(nutriscore: string, novaGroup: number): n
 export function mapMongoToSql(mongoDoc: any) {
   return {
     rawId: mongoDoc.raw_id || mongoDoc._id.toString(),
+    code: mongoDoc.code,
     name: mongoDoc.product_name || "Inconnu",
     brand: mongoDoc.brand || "Inconnue",
     nutriscore: (mongoDoc.nutriscore || "unknown").toUpperCase(),

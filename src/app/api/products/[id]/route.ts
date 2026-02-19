@@ -20,6 +20,7 @@ export async function GET(
     const result = await dbSql.select({
       id: products.id,
       name: products.name,
+      code: products.code,
       nutriscore: products.nutriscore,
       healthScore: products.healthScore,
       isUltraProcessed: products.isUltraProcessed,

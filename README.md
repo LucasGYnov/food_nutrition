@@ -22,25 +22,23 @@ Le projet respecte une séparation stricte des responsabilités à travers un pi
 * **Tests** : Vitest pour la validation de la logique métier et des intégrations API/SQL.
 
 
-## 3. Schéma SQL (Normalisé & Fragmenté)
-La base de données SQLite est structurée selon un **schéma en flocon** pour optimiser l'intégrité des données et permettre une gestion fine des codes-barres, marques et catégories.
+## 3. Schéma SQL
+La base de données SQL est structurée autour d'une table principale `products` liée à des tables de référence pour les marques et catégories :
 
-### Table Principale : `products`
 | Colonne | Type | Contrainte | Description |
 | --- | --- | --- | --- |
-| **id** | INTEGER | PRIMARY KEY | Identifiant unique auto-incrémenté. |
-| **raw_id** | TEXT | UNIQUE | Référence vers l'ID `_id` de MongoDB. |
-| **name** | TEXT | - | Nom du produit (ex: "Sidi Ali"). |
-| **nutriscore** | TEXT | - | Grade Nutri-Score (A à E). |
-| **health_score** | REAL | - | Score de santé interne (0-100). |
-| **is_ultra_processed** | INTEGER | - | Indicateur NOVA 4 (0 ou 1). |
-| **image_url** | TEXT | - | URL de l'image du produit. |
-| **brand_id** | INTEGER | FK | Clé étrangère vers `brands.id`. |
-| **category_id** | INTEGER | FK | Clé étrangère vers `categories.id`. |
-| **barcode_id** | INTEGER | FK | Clé étrangère vers `barcodes.id`. |
+| **id** | INTEGER | PRIMARY KEY | Identifiant unique interne SQLite. |
+| **raw_id** | TEXT | UNIQUE | Identifiant d'origine MongoDB. |
+| **code** | TEXT | - | Code-barres ou QR Code du produit. |
+| **name** | TEXT | - | Nom du produit. |
+| **nutriscore** | TEXT | - | Grade Nutriscore (A-E). |
+| **health_score** | REAL | - | Score de santé calculé. |
+| **is_ultra_processed** | INTEGER | - | Indicateur ultra-transformé (0/1). |
+| **image_url** | TEXT | - | Lien vers l'image. |
+| **brand_id** | INTEGER | FK | Référence vers la table `brands`. |
+| **category_id** | INTEGER | FK | Référence vers la table `categories`. |
 
 ### Tables de Fragmentation (Dictionnaires)
-* **`barcodes`** : Stocke les codes QR/EAN-13 uniques (`id`, `code`).
 * **`brands`** : Liste unique des marques (`id`, `name`).
 * **`categories`** : Liste unique des catégories normalisées (`id`, `name`).
 

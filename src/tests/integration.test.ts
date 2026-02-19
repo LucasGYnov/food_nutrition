@@ -11,17 +11,20 @@ describe('Étape 7 - Tests d’intégration', () => {
   });
 
   it('SQL: Récupération dynamique et détails d’un produit', async () => {
+    // 1. Recherche via l'API Liste
     const listRes = await fetch('http://localhost:3000/api/products?search=Sidi%20Ali');
     const listData = await listRes.json();
     const targetProduct = listData.data[0];
 
     expect(targetProduct.name).toContain("Sidi Ali");
 
+    // 2. Vérification via l'API Détail
     const response = await fetch(`http://localhost:3000/api/products/${targetProduct.id}`);
     const product = await response.json();
     
     expect(response.status).toBe(200);
     expect(product.name).toContain("Sidi Ali");
+    expect(product).toHaveProperty('code');
     expect(product).toHaveProperty('healthScore');
     expect(product).toHaveProperty('brand'); 
     expect(product).toHaveProperty('imageUrl');
