@@ -10,11 +10,9 @@ const dbName = process.env.MONGODB_DB!;
 function calculateInternalScore(nutriscore: string, novaGroup: number): number {
   let score = 50; // Base
   
-  // Bonus/Malus Nutriscore
   const scores: Record<string, number> = { 'A': 40, 'B': 25, 'C': 5, 'D': -15, 'E': -30 };
   score += scores[nutriscore.toUpperCase()] || 0;
 
-  // Malus produit ultra-transformé (NOVA 4)
   if (novaGroup === 4) score -= 20;
   if (novaGroup === 1) score += 10;
 
@@ -39,9 +37,13 @@ async function enrichData() {
       const p = doc.payload;
       const nGrade = p.nutriscore_grade || 'unknown';
       const nova = parseInt(p.nova_group) || 0;
+      
+      // Sécurisation de l'extraction des nutriments
+      const n = p.nutriments || {};
 
       return {
         raw_id: doc._id.toString(),
+        code: p.code, // Ajout du code-barre original
         product_name: p.product_name || "Inconnu",
         brand: p.brands ? p.brands.split(',')[0].trim() : "Marque inconnue",
         nutriscore: nGrade.toUpperCase(),
@@ -49,7 +51,15 @@ async function enrichData() {
         internal_health_score: calculateInternalScore(nGrade, nova),
         is_ultra_processed: nova === 4,
         image_url: p.image_url || "",
-        processed_at: new Date().toISOString()
+        processed_at: new Date().toISOString(),
+
+        nutriments: {
+            energy_kcal: n['energy-kcal_100g'] || 0,
+            fat: n.fat_100g || 0,
+            sugars: n.sugars_100g || 0,
+            proteins: n.proteins_100g || 0,
+            salt: n.salt_100g || 0
+        }
       };
     });
 

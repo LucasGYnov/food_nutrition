@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbSql } from '@/lib/sqlite';
-import { products } from '@/lib/schema';
+import { products, brands, categories } from '@/lib/schema';
 import { eq, like, and, sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
@@ -18,22 +18,35 @@ export async function GET(request: NextRequest) {
 
     const filters = [];
     if (nutriscore) filters.push(eq(products.nutriscore, nutriscore.toUpperCase()));
-    if (brand) filters.push(like(products.brand, `%${brand}%`));
-    if (category) filters.push(eq(products.category, category));
+    if (brand) filters.push(like(brands.name, `%${brand}%`)); 
+    if (category) filters.push(eq(categories.name, category)); 
     if (search) filters.push(like(products.name, `%${search}%`));
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
     const data = await dbSql
-      .select()
-      .from(products)
-      .where(whereClause)
-      .limit(pageSize)
-      .offset(offset);
+    .select({
+      id: products.id,
+      name: products.name,
+      nutriscore: products.nutriscore,
+      healthScore: products.healthScore,
+      isUltraProcessed: products.isUltraProcessed,
+      imageUrl: products.imageUrl,         
+      brand: brands.name,                  
+      category: categories.name 
+    })
+    .from(products)
+    .leftJoin(brands, eq(products.brandId, brands.id))
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .where(whereClause)
+    .limit(pageSize)
+    .offset(offset);
 
     const totalResult = await dbSql
       .select({ count: sql<number>`count(*)` })
       .from(products)
+      .leftJoin(brands, eq(products.brandId, brands.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(whereClause);
     
     const total = totalResult[0].count;
@@ -48,6 +61,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
+    console.error("Erreur API Liste:", error);
     return NextResponse.json({ error: "Erreur lors de la récupération" }, { status: 500 });
   }
 }

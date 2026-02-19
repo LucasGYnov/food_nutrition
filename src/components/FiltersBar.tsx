@@ -48,7 +48,7 @@ export default function FiltersBar() {
         <option value="">Toutes les catégories</option>
         <option value="Snacks">Snacks</option>
         <option value="Beverages">Boissons</option>
-        <option value="Dairy">Produits laitiers</option>
+        <option value="Dairies">Produits laitiers</option>
       </select>
     </div>
   );

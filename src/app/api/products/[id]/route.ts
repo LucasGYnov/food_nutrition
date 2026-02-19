@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbSql } from '@/lib/sqlite';
-import { products } from '@/lib/schema';
+import { products, brands, categories } from '@/lib/schema'; // Ajout des tables liées
 import { eq } from 'drizzle-orm';
 
 export async function GET(
@@ -17,8 +17,19 @@ export async function GET(
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
     }
 
-    const result = await dbSql.select()
+    const result = await dbSql.select({
+      id: products.id,
+      name: products.name,
+      nutriscore: products.nutriscore,
+      healthScore: products.healthScore,
+      isUltraProcessed: products.isUltraProcessed,
+      imageUrl: products.imageUrl,  
+      brand: brands.name,       
+      category: categories.name
+    })
       .from(products)
+      .leftJoin(brands, eq(products.brandId, brands.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(eq(products.id, id))
       .limit(1);
 

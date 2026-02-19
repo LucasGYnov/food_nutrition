@@ -40,24 +40,29 @@ export default function ProductTable() {
             {data.map((p) => (
               <tr key={p.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {p.imageUrl && (
-                      <img src={p.imageUrl} alt={p.name} className="h-10 w-10 object-cover rounded" />
-                    )}
-                  {p.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{p.brand}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-3">
-                    {p.nutriscore ? (
-                      <span className={`px-2 py-1 text-xs font-semibold text-white rounded ${getNutriColor(p.nutriscore)}`}>
-                        {p.nutriscore.toUpperCase()}
-                      </span>
+                  <div className="flex items-center">
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} className="h-10 w-10 object-cover rounded mr-3" />
                     ) : (
-                      <span className="px-2 py-1 text-xs font-semibold text-slate-500 bg-slate-200 rounded">N/A</span>
+                      <div className="h-10 w-10 bg-slate-100 rounded mr-3 flex items-center justify-center text-[10px] text-slate-400">No img</div>
                     )}
-                    {/* <span className="text-sm font-medium">{p.name}</span> */}
+                    {p.name}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">{p.healthScore}/100</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{p.brand}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {p.nutriscore ? (
+                    <span className={`px-2 py-1 text-xs font-semibold text-white rounded ${getNutriColor(p.nutriscore)}`}>
+                      {p.nutriscore.toUpperCase()}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs font-semibold text-slate-500 bg-slate-200 rounded">N/A</span>
+                  )}
+                </td>
+                {/* Utilise healthScore (avec S majuscule) si c'est ce que renvoie ton API */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-700">
+                  {p.healthScore !== undefined ? `${p.healthScore}/100` : '--/100'}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button onClick={() => router.push(`/dashboard/${p.id}`)} className="text-blue-600 hover:text-blue-900">
                     Détails
