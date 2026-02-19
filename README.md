@@ -1,5 +1,9 @@
-# Food Quality Dashboard - Pipeline Data Full-Stack
+# Food Nutrition - Pipeline Data Full-Stack
 Ce projet a pour objectif de concevoir une chaîne complète de traitement de données, de la collecte initiale jusqu'à la visualisation dans un dashboard fonctionnel. Le sujet choisi porte sur l'analyse de la qualité nutritionnelle des produits alimentaires en s'appuyant sur les données d'OpenFoodFacts.
+[Consulter l'énoncé du TP (PDF)](TP_DataS1.pdf)
+
+![Aperçu du Dashboard](Visuel_app.png)
+
 
 ## 1. Architecture du projet
 Le projet respecte une séparation stricte des responsabilités à travers un pipeline linéaire:
